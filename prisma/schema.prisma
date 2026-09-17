@@ -1,0 +1,166 @@
+// Anime App — Database Schema (Prisma / PostgreSQL)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  username      String   @unique
+  passwordHash  String
+  displayName   String?
+  avatarUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  watchlist     WatchlistEntry[]
+  newsComments  NewsComment[]
+
+  @@map("users")
+}
+
+model Anime {
+  id              String   @id @default(cuid())
+
+  externalId      String?
+  externalSource  String?
+
+  title           String
+  titleEnglish    String?
+  titleJapanese   String?
+  synopsis        String?  @db.Text
+  episodes        Int?
+  status          AnimeStatus @default(UNKNOWN)
+  airedFrom       DateTime?
+  airedTo         DateTime?
+  season          String?
+  studio          String?
+  sourceMaterial  String?
+  coverImageUrl   String?
+  bannerImageUrl  String?
+  externalRating  Float?
+  externalRatingCount Int?
+
+  customNotes     String?  @db.Text
+  isFeatured      Boolean  @default(false)
+  editorialTags   String[] @default([])
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  genres          AnimeGenre[]
+  watchlistedBy   WatchlistEntry[]
+  newsLinks       NewsArticleAnime[]
+
+  @@unique([externalSource, externalId])
+  @@index([title])
+  @@map("anime")
+}
+
+enum AnimeStatus {
+  UNKNOWN
+  UPCOMING
+  AIRING
+  FINISHED
+}
+
+model Genre {
+  id      String @id @default(cuid())
+  name    String @unique
+
+  anime   AnimeGenre[]
+
+  @@map("genres")
+}
+
+model AnimeGenre {
+  animeId String
+  genreId String
+
+  anime   Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+  genre   Genre @relation(fields: [genreId], references: [id], onDelete: Cascade)
+
+  @@id([animeId, genreId])
+  @@map("anime_genres")
+}
+
+model WatchlistEntry {
+  id            String        @id @default(cuid())
+  userId        String
+  animeId       String
+
+  status        WatchStatus   @default(PLAN_TO_WATCH)
+  userRating    Int?
+  progress      Int           @default(0)
+  notes         String?       @db.Text
+  startedAt     DateTime?
+  finishedAt    DateTime?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user          User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  anime         Anime @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, animeId])
+  @@index([userId, status])
+  @@map("watchlist_entries")
+}
+
+enum WatchStatus {
+  PLAN_TO_WATCH
+  WATCHING
+  COMPLETED
+  ON_HOLD
+  DROPPED
+}
+
+model NewsArticle {
+  id            String   @id @default(cuid())
+  title         String
+  slug          String   @unique
+  summary       String?  @db.Text
+  body          String   @db.Text
+  sourceUrl     String?
+  sourceName    String?
+  coverImageUrl String?
+  publishedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  relatedAnime  NewsArticleAnime[]
+  comments      NewsComment[]
+
+  @@index([publishedAt])
+  @@map("news_articles")
+}
+
+model NewsArticleAnime {
+  newsArticleId String
+  animeId       String
+
+  newsArticle   NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  anime         Anime       @relation(fields: [animeId], references: [id], onDelete: Cascade)
+
+  @@id([newsArticleId, animeId])
+  @@map("news_article_anime")
+}
+
+model NewsComment {
+  id            String   @id @default(cuid())
+  newsArticleId String
+  userId        String
+  body          String   @db.Text
+  createdAt     DateTime @default(now())
+
+  newsArticle   NewsArticle @relation(fields: [newsArticleId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("news_comments")
+}
